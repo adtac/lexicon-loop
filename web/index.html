@@ -282,9 +282,10 @@ function execute(val) {
     }
 }
 
-function fire(element) {
-    if(event.keyCode == 13) {
-        window.location = window.location.pathname + "?" + element.value.toLowerCase();
+function fire(e) {
+    e = e || window.event;
+    if(e.keyCode == 13) {
+        window.location = window.location.pathname + "?" + document.getElementById("word").value.toLowerCase();
     }
 }
 
@@ -323,7 +324,7 @@ window.onload = function() {
             </p>
         </div>
         <div class="search center">
-            <input type="text" onkeydown="fire(this)" id="word">
+            <input type="text" onkeydown="fire(event)" id="word">
             <button id="ranbut" onclick="random()">Random</button>
         </div>
         <div id="loading" class="loading center" style="display: none">
