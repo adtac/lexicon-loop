@@ -1,0 +1,281 @@
+<html>
+
+<title>Lexicon Loop</title>
+
+<meta name="description" content="Visualize loops in the English language's definitions.">
+
+<link href="https://fonts.googleapis.com/css?family=Inconsolata" rel="stylesheet">
+
+<style id="css">
+html {
+    font-family: 'Inconsolata';
+    overflow-y:scroll;
+}
+
+a {
+    color: #0164C0;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+a:hover {
+    border-bottom: 1px solid #3194F0;
+}
+
+input {
+    font-family: 'Inconsolata';
+    width: 100%;
+    height: 32px;
+    padding: 0 30px 0 35px;
+    font-size: 16px;
+    color: #111;
+    background-color: #f8f8f8;
+    border: 1px solid #ddd;
+    border-radius: 16px;
+    outline: none;
+    -webkit-transition: all .2s ease-in-out;
+    transition: all .2s ease-in-out;
+    -webkit-appearance: none;
+}
+
+.center {
+    align-content: center;
+    justify-content: center;
+    display: flex;
+}
+
+.search {
+    width: 100%;
+    margin-top: 25px;
+}
+
+.title {
+    width: 100%;
+    font-size: 45px;
+}
+
+.exp {
+    width: 60%;
+}
+
+.words {
+    margin-top: 24px;
+    width: 80%;
+}
+
+.leftalign {
+    text-align: left;
+    align-content: left;
+    justify-content: left;
+    display: flex;
+}
+
+ol {
+    list-style-position: inside;
+    counter-reset: foo;
+    display: table;
+    width: 100%;
+}
+
+ol > li {
+    padding: 16px;
+    counter-increment: foo;
+    display: table-row;
+    width: 95%;
+}
+
+ol > li::before {
+    padding: 16px;
+    content: counter(foo) ".";
+    display: table-cell;
+    width: 5%;
+}
+
+.loading {
+    width: 100%;
+    text-align: center;
+    padding-top: 24px;
+}
+</style>
+
+<script>
+function is_mobile() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
+function resize() {
+    var style = document.getElementById("css");
+    if(is_mobile() || window.innerWidth < 1000)
+        style.appendChild(document.createTextNode(".content { width: 90%; }"));
+    else
+        style.appendChild(document.createTextNode(".content { width: 40%; }"));
+}
+
+var defn;
+
+function writer(g) {
+    arr = g[0];
+    i = g[1];
+    if(i >= arr.length) {
+        defn.close();
+        return;
+    }
+
+    words = document.getElementById("wordslist");
+    if(defn.readyState == 1)
+        defn.send(arr[i]);
+    else {
+        defn.onopen = function() {
+            console.log("defn: " + defn.readyState);
+            defn.send(arr[i]);
+        }
+    }
+    defn.onmessage = function(res) {
+        li = document.createElement("li");
+        if(arr[i] == arr[arr.length - 1])
+            li.style = "background-color: #f0f0f0";
+        else
+            li.style = "background-color: #ffffff";
+
+        word = document.createElement("b");
+        word.appendChild(document.createTextNode(arr[i]));
+
+        li.appendChild(word);
+        li.appendChild(document.createElement("br"));
+
+        if(i + 1 < arr.length) {
+            val = arr[i + 1]
+            splits = res.data.split(/[^A-Za-z\']/);
+            for(var j = 0; j < splits.length; j++)
+                splits[j] = splits[j].toLowerCase();
+
+            pos = splits.indexOf(val.toLowerCase());
+            text = document.createElement("p");
+            if(pos == -1) {
+                u = document.createElement("u");
+                u.appendChild(document.createTextNode(val));
+                text.appendChild(document.createTextNode("... " ));
+                text.appendChild(u);
+                text.appendChild(document.createTextNode(" ..." ));
+            }
+            else {
+                add_dots = true;
+                pretext = ""
+                for(var j = pos - 1; j >= pos - 3; j--) {
+                    if(j < 0) {
+                        add_dots = false;
+                        break;
+                    }
+                    pretext = splits[j] + " " + pretext;
+                }
+                if(add_dots)
+                    pretext = "... " + pretext;
+                text.appendChild(document.createTextNode(pretext));
+
+                u = document.createElement("u");
+                u.appendChild(document.createTextNode(val));
+                text.appendChild(u);
+
+                add_dots = true;
+                posttext = ""
+                for(var j = pos + 1; j <= pos + 3; j++) {
+                    if(j >= splits.length) {
+                        add_dots = false;
+                        break;
+                    }
+                    posttext = posttext + " " + splits[j];
+                }
+                if(add_dots)
+                    posttext = posttext + " ...";
+                text.appendChild(document.createTextNode(posttext));
+            }
+            li.appendChild(text);
+
+            li.appendChild(document.createElement("br"));
+        }
+
+        flag = 0;
+        if(document.body.scrollHeight - window.innerHeight == document.body.scrollTop)
+            flag = 1;
+        document.getElementById("loading").style = "display: none";
+        words.appendChild(li);
+        if(flag)
+            window.scrollTo(0,document.body.scrollHeight);
+        setTimeout(writer, 1000, [arr, i + 1]);
+    }
+}
+
+executed = false;
+sent = false
+
+function execute(val) {
+    var cycle = new WebSocket("ws://cycle-server.herokuapp.com");
+
+    if(executed)
+        return;
+    executed = true;
+    document.getElementById("loading").style = "display: block";
+    cycle.onopen = function() {
+        if(!sent && cycle.readyState == 1) {
+            cycle.send(val);
+            sent = true;
+        }
+    }
+    cycle.onmessage = function(data) {
+        cycle.close();
+        var arr = JSON.parse(data.data);
+        var li = document.getElementsByTagName('li');
+        while(li.length > 0) {
+            li[0].parentNode.removeChild(li[0]);
+        }
+        defn = new WebSocket("ws://definition-server.herokuapp.com");
+        writer([arr, 0]);
+    }
+}
+
+function fire(element) {
+    if(event.keyCode == 13) {
+        window.location = window.location.pathname + "?" + element.value
+    }
+}
+
+window.onresize = resize;
+
+window.onload = function() {
+    resize();
+    document.getElementById("word").value = window.location.search.substr(1);
+    if(window.location.search.substr(1) != "") {
+        execute(window.location.search.substr(1));
+    }
+}
+</script>
+
+<div class="center" style="width: 100%">
+    <div class="content">
+        <div class="title center">
+            <a onclick="window.location=window.location.href.split('?')[0];" style="text-decoration: none; color: black; border-bottom: 1px solid; black"><head>Lexicon Loop</head></a>
+        </div>
+        <div class="center">
+            <p class="exp">
+            The English dictionary is written in English, right? So there
+            <i>must</i> be cycles in it. Let's find out. Enter any valid English
+            into the text box below and press Enter.<br>
+            <br>
+            This is made with a pure C backend and websockets. Check out the code
+            <a href="https://github.com/adtac/lexicon-loop"><b>over here</b></a>.
+            </p>
+        </div>
+        <div class="search center">
+            <input type="text" onkeydown="fire(this)" id="word">
+        </div>
+        <div id="loading" class="loading center" style="display: none">
+            Loading...
+        </div>
+        <div class="words leftalign">
+            <ol id="wordslist">
+            </ol>
+        </div>
+    </div>
+</div>
+
+</html>
