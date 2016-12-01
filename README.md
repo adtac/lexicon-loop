@@ -1,5 +1,7 @@
 # lexicon-loop
 
+![image](https://i.imgur.com/M0VvBFC.png)
+
 To see a live demo, go to
 [http://lexicon-loop.now.sh](http://lexicon-loop.now.sh).
 
